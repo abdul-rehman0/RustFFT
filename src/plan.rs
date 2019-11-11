@@ -1,15 +1,14 @@
+use num_integer::gcd;
 use std::collections::HashMap;
 use std::sync::Arc;
-use num_integer::gcd;
 
-use common::FFTnum;
+use crate::common::FFTnum;
 
-use FFT;
-use algorithm::*;
-use algorithm::butterflies::*;
+use crate::algorithm::butterflies::*;
+use crate::algorithm::*;
+use crate::FFT;
 
-use math_utils;
-
+use crate::math_utils;
 
 const MIN_RADIX4_BITS: u32 = 5; // smallest size to consider radix 4 an option is 2^5 = 32
 const MAX_RADIX4_BITS: u32 = 16; // largest size to consider radix 4 an option is 2^16 = 65536
@@ -34,7 +33,7 @@ const COMPOSITE_BUTTERFLIES: [usize; 5] = [4, 6, 8, 16, 32];
 /// let mut planner = FFTplanner::new(false);
 /// let fft = planner.plan_fft(1234);
 /// fft.process(&mut input, &mut output);
-/// 
+///
 /// // The fft instance returned by the planner is stored behind an `Arc`, so it's cheap to clone
 /// let fft_clone = Arc::clone(&fft);
 /// ~~~
@@ -77,8 +76,10 @@ impl<T: FFTnum> FFTplanner<T> {
 
     fn plan_butterfly(&mut self, len: usize) -> Arc<FFTButterfly<T>> {
         let inverse = self.inverse;
-        let instance = self.butterfly_cache.entry(len).or_insert_with(|| 
-            match len {
+        let instance = self
+            .butterfly_cache
+            .entry(len)
+            .or_insert_with(|| match len {
                 2 => Arc::new(Butterfly2::new(inverse)),
                 3 => Arc::new(Butterfly3::new(inverse)),
                 4 => Arc::new(Butterfly4::new(inverse)),
@@ -89,19 +90,19 @@ impl<T: FFTnum> FFTplanner<T> {
                 16 => Arc::new(Butterfly16::new(inverse)),
                 32 => Arc::new(Butterfly32::new(inverse)),
                 _ => panic!("Invalid butterfly size: {}", len),
-            }
-        );
+            });
         Arc::clone(instance)
     }
-    
+
     fn plan_fft_with_factors(&mut self, len: usize, factors: &[usize]) -> Arc<FFT<T>> {
         if self.algorithm_cache.contains_key(&len) {
             Arc::clone(self.algorithm_cache.get(&len).unwrap())
         } else {
             let result = if factors.len() == 1 || COMPOSITE_BUTTERFLIES.contains(&len) {
                 self.plan_fft_single_factor(len)
-
-            } else if len.trailing_zeros() <= MAX_RADIX4_BITS && len.trailing_zeros() >= MIN_RADIX4_BITS {
+            } else if len.trailing_zeros() <= MAX_RADIX4_BITS
+                && len.trailing_zeros() >= MIN_RADIX4_BITS
+            {
                 //the number of trailing zeroes in len is the number of `2` factors
                 //ie if len = 2048 * n, len.trailing_zeros() will equal 11 because 2^11 == 2048
 
@@ -111,11 +112,11 @@ impl<T: FFTnum> FFTplanner<T> {
                     let left_len = 1 << len.trailing_zeros();
                     let right_len = len / left_len;
 
-                    let (left_factors, right_factors) = factors.split_at(len.trailing_zeros() as usize);
+                    let (left_factors, right_factors) =
+                        factors.split_at(len.trailing_zeros() as usize);
 
                     self.plan_mixed_radix(left_len, left_factors, right_len, right_factors)
                 }
-
             } else {
                 let sqrt = (len as f32).sqrt() as usize;
                 if sqrt * sqrt == len {
@@ -159,13 +160,13 @@ impl<T: FFTnum> FFTplanner<T> {
         }
     }
 
-    fn plan_mixed_radix(&mut self,
-                        left_len: usize,
-                        left_factors: &[usize],
-                        right_len: usize,
-                        right_factors: &[usize])
-                        -> Arc<FFT<T>> {
-
+    fn plan_mixed_radix(
+        &mut self,
+        left_len: usize,
+        left_factors: &[usize],
+        right_len: usize,
+        right_factors: &[usize],
+    ) -> Arc<FFT<T>> {
         let left_is_butterfly = BUTTERFLIES.contains(&left_len);
         let right_is_butterfly = BUTTERFLIES.contains(&right_len);
 
@@ -176,7 +177,8 @@ impl<T: FFTnum> FFTplanner<T> {
 
             // for butterflies, if gcd is 1, we always want to use good-thomas
             if gcd(left_len, right_len) == 1 {
-                Arc::new(GoodThomasAlgorithmDoubleButterfly::new(left_fft, right_fft)) as Arc<FFT<T>>
+                Arc::new(GoodThomasAlgorithmDoubleButterfly::new(left_fft, right_fft))
+                    as Arc<FFT<T>>
             } else {
                 Arc::new(MixedRadixDoubleButterfly::new(left_fft, right_fft)) as Arc<FFT<T>>
             }
@@ -188,7 +190,6 @@ impl<T: FFTnum> FFTplanner<T> {
             Arc::new(MixedRadix::new(left_fft, right_fft)) as Arc<FFT<T>>
         }
     }
-
 
     fn plan_fft_single_factor(&mut self, len: usize) -> Arc<FFT<T>> {
         match len {

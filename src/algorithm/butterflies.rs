@@ -1,11 +1,10 @@
 use num_complex::Complex;
 use num_traits::{FromPrimitive, Zero};
 
-use common::{FFTnum, verify_length, verify_length_divisible};
+use crate::common::{verify_length, verify_length_divisible, FFTnum};
 
-use twiddles;
-use ::{Length, IsInverse, FFT};
-
+use crate::twiddles;
+use crate::{IsInverse, Length, FFT};
 
 pub trait FFTButterfly<T: FFTnum>: Length + IsInverse + Sync + Send {
     /// Computes the FFT in-place in the given buffer
@@ -21,17 +20,12 @@ pub trait FFTButterfly<T: FFTnum>: Length + IsInverse + Sync + Send {
     unsafe fn process_multi_inplace(&self, buffer: &mut [Complex<T>]);
 }
 
-
 #[inline(always)]
 unsafe fn swap_unchecked<T: Copy>(buffer: &mut [T], a: usize, b: usize) {
-	let temp = *buffer.get_unchecked(a);
-	*buffer.get_unchecked_mut(a) = *buffer.get_unchecked(b);
-	*buffer.get_unchecked_mut(b) = temp;
+    let temp = *buffer.get_unchecked(a);
+    *buffer.get_unchecked_mut(a) = *buffer.get_unchecked(b);
+    *buffer.get_unchecked_mut(b) = temp;
 }
-
-
-
-
 
 pub struct Butterfly2 {
     inverse: bool,
@@ -39,15 +33,13 @@ pub struct Butterfly2 {
 impl Butterfly2 {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
-        Butterfly2 {
-            inverse: inverse,
-        }
+        Butterfly2 { inverse: inverse }
     }
 
     #[inline(always)]
     unsafe fn perform_fft_direct<T: FFTnum>(left: &mut Complex<T>, right: &mut Complex<T>) {
         let temp = *left + *right;
-        
+
         *right = *left - *right;
         *left = temp;
     }
@@ -56,15 +48,15 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly2 {
     #[inline(always)]
     unsafe fn process_inplace(&self, buffer: &mut [Complex<T>]) {
         let temp = *buffer.get_unchecked(0) + *buffer.get_unchecked(1);
-        
+
         *buffer.get_unchecked_mut(1) = *buffer.get_unchecked(0) - *buffer.get_unchecked(1);
         *buffer.get_unchecked_mut(0) = temp;
     }
     #[inline(always)]
     unsafe fn process_multi_inplace(&self, buffer: &mut [Complex<T>]) {
-    	for chunk in buffer.chunks_mut(self.len()) {
-    		self.process_inplace(chunk);
-    	}
+        for chunk in buffer.chunks_mut(self.len()) {
+            self.process_inplace(chunk);
+        }
     }
 }
 impl<T: FFTnum> FFT<T> for Butterfly2 {
@@ -94,14 +86,12 @@ impl IsInverse for Butterfly2 {
     }
 }
 
-
-
 pub struct Butterfly3<T> {
-	pub twiddle: Complex<T>,
+    pub twiddle: Complex<T>,
     inverse: bool,
 }
 impl<T: FFTnum> Butterfly3<T> {
-	#[inline(always)]
+    #[inline(always)]
     pub fn new(inverse: bool) -> Self {
         Butterfly3 {
             twiddle: twiddles::single_twiddle(1, 3, inverse),
@@ -128,7 +118,11 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly3<T> {
         *buffer.get_unchecked_mut(0) = temp + *buffer.get_unchecked(1);
 
         *buffer.get_unchecked_mut(1) = *buffer.get_unchecked(1) * self.twiddle.re + temp;
-        *buffer.get_unchecked_mut(2) = *buffer.get_unchecked(2) * Complex{re: Zero::zero(), im: self.twiddle.im};
+        *buffer.get_unchecked_mut(2) = *buffer.get_unchecked(2)
+            * Complex {
+                re: Zero::zero(),
+                im: self.twiddle.im,
+            };
 
         butterfly2.process_inplace(&mut buffer[1..]);
     }
@@ -166,18 +160,13 @@ impl<T> IsInverse for Butterfly3<T> {
     }
 }
 
-
-
-
-
 pub struct Butterfly4 {
     inverse: bool,
 }
-impl Butterfly4
-{
+impl Butterfly4 {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
-        Butterfly4 { inverse:inverse }
+        Butterfly4 { inverse: inverse }
     }
 }
 impl<T: FFTnum> FFTButterfly<T> for Butterfly4 {
@@ -243,31 +232,26 @@ impl IsInverse for Butterfly4 {
     }
 }
 
-
-
-
-
 pub struct Butterfly5<T> {
-	inner_fft_multiply: [Complex<T>; 4],
-	inverse: bool,
+    inner_fft_multiply: [Complex<T>; 4],
+    inverse: bool,
 }
 impl<T: FFTnum> Butterfly5<T> {
     pub fn new(inverse: bool) -> Self {
+        //we're going to hardcode a raders algorithm of size 5 and an inner FFT of size 4
+        let quarter: T = FromPrimitive::from_f32(0.25f32).unwrap();
+        let twiddle1: Complex<T> = twiddles::single_twiddle(1, 5, inverse) * quarter;
+        let twiddle2: Complex<T> = twiddles::single_twiddle(2, 5, inverse) * quarter;
 
-    	//we're going to hardcode a raders algorithm of size 5 and an inner FFT of size 4
-    	let quarter: T = FromPrimitive::from_f32(0.25f32).unwrap();
-    	let twiddle1: Complex<T> = twiddles::single_twiddle(1, 5, inverse) * quarter;
-    	let twiddle2: Complex<T> = twiddles::single_twiddle(2, 5, inverse) * quarter;
+        //our primitive root will be 2, and our inverse will be 3. the powers of 3 mod 5 are 1.3.4.2, so we hardcode to use the twiddles in that order
+        let mut fft_data = [twiddle1, twiddle2.conj(), twiddle1.conj(), twiddle2];
 
-    	//our primitive root will be 2, and our inverse will be 3. the powers of 3 mod 5 are 1.3.4.2, so we hardcode to use the twiddles in that order
-    	let mut fft_data = [twiddle1, twiddle2.conj(), twiddle1.conj(), twiddle2];
+        let butterfly = Butterfly4::new(inverse);
+        unsafe { butterfly.process_inplace(&mut fft_data) };
 
-    	let butterfly = Butterfly4::new(inverse);
-    	unsafe { butterfly.process_inplace(&mut fft_data) };
-
-        Butterfly5 { 
-        	inner_fft_multiply: fft_data,
-        	inverse: inverse,
+        Butterfly5 {
+            inner_fft_multiply: fft_data,
+            inverse: inverse,
         }
     }
 }
@@ -276,7 +260,12 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly5<T> {
     unsafe fn process_inplace(&self, buffer: &mut [Complex<T>]) {
         //we're going to reorder the buffer directly into our scratch vec
         //our primitive root is 2. the powers of 2 mod 5 are 1, 2,4,3 so use that ordering
-        let mut scratch = [*buffer.get_unchecked(1), *buffer.get_unchecked(2), *buffer.get_unchecked(4), *buffer.get_unchecked(3)];
+        let mut scratch = [
+            *buffer.get_unchecked(1),
+            *buffer.get_unchecked(2),
+            *buffer.get_unchecked(4),
+            *buffer.get_unchecked(3),
+        ];
 
         //perform the first inner FFT
         Butterfly4::new(self.inverse).process_inplace(&mut scratch);
@@ -337,19 +326,19 @@ impl<T> IsInverse for Butterfly5<T> {
     }
 }
 
-
-
-
 pub struct Butterfly6<T> {
-	butterfly3: Butterfly3<T>,
+    butterfly3: Butterfly3<T>,
 }
 impl<T: FFTnum> Butterfly6<T> {
-
     pub fn new(inverse: bool) -> Self {
-        Butterfly6 { butterfly3: Butterfly3::new(inverse) }
+        Butterfly6 {
+            butterfly3: Butterfly3::new(inverse),
+        }
     }
     pub fn inverse_of(fft: &Butterfly6<T>) -> Self {
-        Butterfly6 { butterfly3: Butterfly3::inverse_of(&fft.butterfly3) }
+        Butterfly6 {
+            butterfly3: Butterfly3::inverse_of(&fft.butterfly3),
+        }
     }
 }
 impl<T: FFTnum> FFTButterfly<T> for Butterfly6<T> {
@@ -428,27 +417,32 @@ impl<T> IsInverse for Butterfly6<T> {
     }
 }
 
-
 pub struct Butterfly7<T> {
     inner_fft: Butterfly6<T>,
-    inner_fft_multiply: [Complex<T>; 6]
+    inner_fft_multiply: [Complex<T>; 6],
 }
 impl<T: FFTnum> Butterfly7<T> {
     pub fn new(inverse: bool) -> Self {
-
         //we're going to hardcode a raders algorithm of size 5 and an inner FFT of size 4
-        let sixth: T = FromPrimitive::from_f64(1f64/6f64).unwrap();
+        let sixth: T = FromPrimitive::from_f64(1f64 / 6f64).unwrap();
         let twiddle1: Complex<T> = twiddles::single_twiddle(1, 7, inverse) * sixth;
         let twiddle2: Complex<T> = twiddles::single_twiddle(2, 7, inverse) * sixth;
         let twiddle3: Complex<T> = twiddles::single_twiddle(3, 7, inverse) * sixth;
 
         //our primitive root will be 3, and our inverse will be 5. the powers of 5 mod 7 are 1,5,4,6,2,3, so we hardcode to use the twiddles in that order
-        let mut fft_data = [twiddle1, twiddle2.conj(), twiddle3.conj(), twiddle1.conj(), twiddle2, twiddle3];
+        let mut fft_data = [
+            twiddle1,
+            twiddle2.conj(),
+            twiddle3.conj(),
+            twiddle1.conj(),
+            twiddle2,
+            twiddle3,
+        ];
 
         let butterfly = Butterfly6::new(inverse);
         unsafe { butterfly.process_inplace(&mut fft_data) };
 
-        Butterfly7 { 
+        Butterfly7 {
             inner_fft: butterfly,
             inner_fft_multiply: fft_data,
         }
@@ -466,7 +460,7 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly7<T> {
             *buffer.get_unchecked(4),
             *buffer.get_unchecked(5),
             *buffer.get_unchecked(1),
-            ];
+        ];
 
         //perform the first inner FFT
         self.inner_fft.process_inplace(&mut scratch);
@@ -530,19 +524,16 @@ impl<T> IsInverse for Butterfly7<T> {
     }
 }
 
-
-
 pub struct Butterfly8<T> {
     twiddle: Complex<T>,
     inverse: bool,
 }
-impl<T: FFTnum> Butterfly8<T>
-{
+impl<T: FFTnum> Butterfly8<T> {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
         Butterfly8 {
             inverse: inverse,
-            twiddle: twiddles::single_twiddle(1, 8, inverse)
+            twiddle: twiddles::single_twiddle(1, 8, inverse),
         }
     }
 
@@ -586,10 +577,14 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly8<T> {
 
         // step 3: apply twiddle factors
         let twiddle1 = self.twiddle;
-        let twiddle3 = Complex{ re: -twiddle1.re, im: twiddle1.im };
+        let twiddle3 = Complex {
+            re: -twiddle1.re,
+            im: twiddle1.im,
+        };
 
         *scratch.get_unchecked_mut(5) = scratch.get_unchecked(5) * twiddle1;
-        *scratch.get_unchecked_mut(6) = twiddles::rotate_90(*scratch.get_unchecked(6), self.inverse);
+        *scratch.get_unchecked_mut(6) =
+            twiddles::rotate_90(*scratch.get_unchecked(6), self.inverse);
         *scratch.get_unchecked_mut(7) = scratch.get_unchecked(7) * twiddle3;
 
         // step 4: transpose
@@ -645,8 +640,6 @@ impl<T> IsInverse for Butterfly8<T> {
     }
 }
 
-
-
 pub struct Butterfly16<T> {
     butterfly8: Butterfly8<T>,
     twiddle1: Complex<T>,
@@ -654,8 +647,7 @@ pub struct Butterfly16<T> {
     twiddle3: Complex<T>,
     inverse: bool,
 }
-impl<T: FFTnum> Butterfly16<T>
-{
+impl<T: FFTnum> Butterfly16<T> {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
         Butterfly16 {
@@ -726,23 +718,22 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly16<T> {
         scratch_odds_n3[3] = twiddles::rotate_90(scratch_odds_n3[3], self.inverse);
 
         //step 5: copy/add/subtract data back to buffer
-        *buffer.get_unchecked_mut(0) =  scratch_evens[0] + scratch_odds_n1[0];
-        *buffer.get_unchecked_mut(1) =  scratch_evens[1] + scratch_odds_n1[1];
-        *buffer.get_unchecked_mut(2) =  scratch_evens[2] + scratch_odds_n1[2];
-        *buffer.get_unchecked_mut(3) =  scratch_evens[3] + scratch_odds_n1[3];
-        *buffer.get_unchecked_mut(4) =  scratch_evens[4] + scratch_odds_n3[0];
-        *buffer.get_unchecked_mut(5) =  scratch_evens[5] + scratch_odds_n3[1];
-        *buffer.get_unchecked_mut(6) =  scratch_evens[6] + scratch_odds_n3[2];
-        *buffer.get_unchecked_mut(7) =  scratch_evens[7] + scratch_odds_n3[3];
-        *buffer.get_unchecked_mut(8) =  scratch_evens[0] - scratch_odds_n1[0];
-        *buffer.get_unchecked_mut(9) =  scratch_evens[1] - scratch_odds_n1[1];
+        *buffer.get_unchecked_mut(0) = scratch_evens[0] + scratch_odds_n1[0];
+        *buffer.get_unchecked_mut(1) = scratch_evens[1] + scratch_odds_n1[1];
+        *buffer.get_unchecked_mut(2) = scratch_evens[2] + scratch_odds_n1[2];
+        *buffer.get_unchecked_mut(3) = scratch_evens[3] + scratch_odds_n1[3];
+        *buffer.get_unchecked_mut(4) = scratch_evens[4] + scratch_odds_n3[0];
+        *buffer.get_unchecked_mut(5) = scratch_evens[5] + scratch_odds_n3[1];
+        *buffer.get_unchecked_mut(6) = scratch_evens[6] + scratch_odds_n3[2];
+        *buffer.get_unchecked_mut(7) = scratch_evens[7] + scratch_odds_n3[3];
+        *buffer.get_unchecked_mut(8) = scratch_evens[0] - scratch_odds_n1[0];
+        *buffer.get_unchecked_mut(9) = scratch_evens[1] - scratch_odds_n1[1];
         *buffer.get_unchecked_mut(10) = scratch_evens[2] - scratch_odds_n1[2];
         *buffer.get_unchecked_mut(11) = scratch_evens[3] - scratch_odds_n1[3];
         *buffer.get_unchecked_mut(12) = scratch_evens[4] - scratch_odds_n3[0];
         *buffer.get_unchecked_mut(13) = scratch_evens[5] - scratch_odds_n3[1];
         *buffer.get_unchecked_mut(14) = scratch_evens[6] - scratch_odds_n3[2];
         *buffer.get_unchecked_mut(15) = scratch_evens[7] - scratch_odds_n3[3];
-
     }
     #[inline(always)]
     unsafe fn process_multi_inplace(&self, buffer: &mut [Complex<T>]) {
@@ -778,16 +769,13 @@ impl<T> IsInverse for Butterfly16<T> {
     }
 }
 
-
-
 pub struct Butterfly32<T> {
     butterfly16: Butterfly16<T>,
     butterfly8: Butterfly8<T>,
     twiddles: [Complex<T>; 7],
     inverse: bool,
 }
-impl<T: FFTnum> Butterfly32<T>
-{
+impl<T: FFTnum> Butterfly32<T> {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
         Butterfly32 {
@@ -899,39 +887,38 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly32<T> {
         scratch_odds_n3[7] = twiddles::rotate_90(scratch_odds_n3[7], self.inverse);
 
         //step 5: copy/add/subtract data back to buffer
-        *buffer.get_unchecked_mut(0) =  scratch_evens[0] +  scratch_odds_n1[0];
-        *buffer.get_unchecked_mut(1) =  scratch_evens[1] +  scratch_odds_n1[1];
-        *buffer.get_unchecked_mut(2) =  scratch_evens[2] +  scratch_odds_n1[2];
-        *buffer.get_unchecked_mut(3) =  scratch_evens[3] +  scratch_odds_n1[3];
-        *buffer.get_unchecked_mut(4) =  scratch_evens[4] +  scratch_odds_n1[4];
-        *buffer.get_unchecked_mut(5) =  scratch_evens[5] +  scratch_odds_n1[5];
-        *buffer.get_unchecked_mut(6) =  scratch_evens[6] +  scratch_odds_n1[6];
-        *buffer.get_unchecked_mut(7) =  scratch_evens[7] +  scratch_odds_n1[7];
-        *buffer.get_unchecked_mut(8) =  scratch_evens[8] +  scratch_odds_n3[0];
-        *buffer.get_unchecked_mut(9) =  scratch_evens[9] +  scratch_odds_n3[1];
+        *buffer.get_unchecked_mut(0) = scratch_evens[0] + scratch_odds_n1[0];
+        *buffer.get_unchecked_mut(1) = scratch_evens[1] + scratch_odds_n1[1];
+        *buffer.get_unchecked_mut(2) = scratch_evens[2] + scratch_odds_n1[2];
+        *buffer.get_unchecked_mut(3) = scratch_evens[3] + scratch_odds_n1[3];
+        *buffer.get_unchecked_mut(4) = scratch_evens[4] + scratch_odds_n1[4];
+        *buffer.get_unchecked_mut(5) = scratch_evens[5] + scratch_odds_n1[5];
+        *buffer.get_unchecked_mut(6) = scratch_evens[6] + scratch_odds_n1[6];
+        *buffer.get_unchecked_mut(7) = scratch_evens[7] + scratch_odds_n1[7];
+        *buffer.get_unchecked_mut(8) = scratch_evens[8] + scratch_odds_n3[0];
+        *buffer.get_unchecked_mut(9) = scratch_evens[9] + scratch_odds_n3[1];
         *buffer.get_unchecked_mut(10) = scratch_evens[10] + scratch_odds_n3[2];
         *buffer.get_unchecked_mut(11) = scratch_evens[11] + scratch_odds_n3[3];
         *buffer.get_unchecked_mut(12) = scratch_evens[12] + scratch_odds_n3[4];
         *buffer.get_unchecked_mut(13) = scratch_evens[13] + scratch_odds_n3[5];
         *buffer.get_unchecked_mut(14) = scratch_evens[14] + scratch_odds_n3[6];
         *buffer.get_unchecked_mut(15) = scratch_evens[15] + scratch_odds_n3[7];
-        *buffer.get_unchecked_mut(16) = scratch_evens[0] -  scratch_odds_n1[0];
-        *buffer.get_unchecked_mut(17) = scratch_evens[1] -  scratch_odds_n1[1];
-        *buffer.get_unchecked_mut(18) = scratch_evens[2] -  scratch_odds_n1[2];
-        *buffer.get_unchecked_mut(19) = scratch_evens[3] -  scratch_odds_n1[3];
-        *buffer.get_unchecked_mut(20) = scratch_evens[4] -  scratch_odds_n1[4];
-        *buffer.get_unchecked_mut(21) = scratch_evens[5] -  scratch_odds_n1[5];
-        *buffer.get_unchecked_mut(22) = scratch_evens[6] -  scratch_odds_n1[6];
-        *buffer.get_unchecked_mut(23) = scratch_evens[7] -  scratch_odds_n1[7];
-        *buffer.get_unchecked_mut(24) = scratch_evens[8] -  scratch_odds_n3[0];
-        *buffer.get_unchecked_mut(25) = scratch_evens[9] -  scratch_odds_n3[1];
+        *buffer.get_unchecked_mut(16) = scratch_evens[0] - scratch_odds_n1[0];
+        *buffer.get_unchecked_mut(17) = scratch_evens[1] - scratch_odds_n1[1];
+        *buffer.get_unchecked_mut(18) = scratch_evens[2] - scratch_odds_n1[2];
+        *buffer.get_unchecked_mut(19) = scratch_evens[3] - scratch_odds_n1[3];
+        *buffer.get_unchecked_mut(20) = scratch_evens[4] - scratch_odds_n1[4];
+        *buffer.get_unchecked_mut(21) = scratch_evens[5] - scratch_odds_n1[5];
+        *buffer.get_unchecked_mut(22) = scratch_evens[6] - scratch_odds_n1[6];
+        *buffer.get_unchecked_mut(23) = scratch_evens[7] - scratch_odds_n1[7];
+        *buffer.get_unchecked_mut(24) = scratch_evens[8] - scratch_odds_n3[0];
+        *buffer.get_unchecked_mut(25) = scratch_evens[9] - scratch_odds_n3[1];
         *buffer.get_unchecked_mut(26) = scratch_evens[10] - scratch_odds_n3[2];
         *buffer.get_unchecked_mut(27) = scratch_evens[11] - scratch_odds_n3[3];
         *buffer.get_unchecked_mut(28) = scratch_evens[12] - scratch_odds_n3[4];
         *buffer.get_unchecked_mut(29) = scratch_evens[13] - scratch_odds_n3[5];
         *buffer.get_unchecked_mut(30) = scratch_evens[14] - scratch_odds_n3[6];
         *buffer.get_unchecked_mut(31) = scratch_evens[15] - scratch_odds_n3[7];
-
     }
     #[inline(always)]
     unsafe fn process_multi_inplace(&self, buffer: &mut [Complex<T>]) {
@@ -967,19 +954,17 @@ impl<T> IsInverse for Butterfly32<T> {
     }
 }
 
-
-
 #[cfg(test)]
 mod unit_tests {
-	use super::*;
-	use test_utils::{random_signal, compare_vectors, check_fft_algorithm};
-	use algorithm::DFT;
-	use num_traits::Zero;
+    use super::*;
+    use algorithm::DFT;
+    use num_traits::Zero;
+    use test_utils::{check_fft_algorithm, compare_vectors, random_signal};
 
     //the tests for all butterflies will be identical except for the identifiers used and size
     //so it's ideal for a macro
     macro_rules! test_butterfly_func {
-        ($test_name:ident, $struct_name:ident, $size:expr) => (
+        ($test_name:ident, $struct_name:ident, $size:expr) => {
             #[test]
             fn $test_name() {
                 let butterfly = $struct_name::new(false);
@@ -992,7 +977,7 @@ mod unit_tests {
                 check_fft_algorithm(&butterfly_inverse, $size, true);
                 check_butterfly(&butterfly_inverse, $size, true);
             }
-        )
+        };
     }
     test_butterfly_func!(test_butterfly2, Butterfly2, 2);
     test_butterfly_func!(test_butterfly3, Butterfly3, 3);
@@ -1003,11 +988,18 @@ mod unit_tests {
     test_butterfly_func!(test_butterfly8, Butterfly8, 8);
     test_butterfly_func!(test_butterfly16, Butterfly16, 16);
     test_butterfly_func!(test_butterfly32, Butterfly32, 32);
-    
 
     fn check_butterfly(butterfly: &FFTButterfly<f32>, size: usize, inverse: bool) {
-        assert_eq!(butterfly.len(), size, "Butterfly algorithm reported wrong size");
-        assert_eq!(butterfly.is_inverse(), inverse, "Butterfly algorithm reported wrong inverse value");
+        assert_eq!(
+            butterfly.len(),
+            size,
+            "Butterfly algorithm reported wrong size"
+        );
+        assert_eq!(
+            butterfly.is_inverse(),
+            inverse,
+            "Butterfly algorithm reported wrong inverse value"
+        );
 
         let n = 5;
 
@@ -1024,13 +1016,25 @@ mod unit_tests {
         // perform the test
         dft.process_multi(&mut expected_input, &mut expected_output);
 
-        unsafe { butterfly.process_multi_inplace(&mut inplace_multi_buffer); }
+        unsafe {
+            butterfly.process_multi_inplace(&mut inplace_multi_buffer);
+        }
 
         for chunk in inplace_buffer.chunks_mut(size) {
             unsafe { butterfly.process_inplace(chunk) };
         }
 
-        assert!(compare_vectors(&expected_output, &inplace_buffer), "process_inplace() failed, length = {}, inverse = {}", size, inverse);
-        assert!(compare_vectors(&expected_output, &inplace_multi_buffer), "process_multi_inplace() failed, length = {}, inverse = {}", size, inverse);
+        assert!(
+            compare_vectors(&expected_output, &inplace_buffer),
+            "process_inplace() failed, length = {}, inverse = {}",
+            size,
+            inverse
+        );
+        assert!(
+            compare_vectors(&expected_output, &inplace_multi_buffer),
+            "process_multi_inplace() failed, length = {}, inverse = {}",
+            size,
+            inverse
+        );
     }
 }
