@@ -57,7 +57,7 @@ impl<T: FFTnum> FFTplanner<T> {
     /// If `inverse` is false, this planner will plan forward FFTs. If `inverse` is true, it will plan inverse FFTs.
     pub fn new(inverse: bool) -> Self {
         FFTplanner {
-            inverse: inverse,
+            inverse,
             algorithm_cache: HashMap::new(),
             butterfly_cache: HashMap::new(),
         }
@@ -139,15 +139,15 @@ impl<T: FFTnum> FFTplanner<T> {
                             second_half_index = i;
                             break;
                         } else {
-                            product = product * *factor;
+                            product *= *factor;
                         }
                     }
 
                     //we now know that product is the largest it can be without being greater than len / product
                     //there's one more thing we can try to make them closer together -- if product * factors[index] < len / product,
                     if product * factors[second_half_index] < len / product {
-                        product = product * factors[second_half_index];
-                        second_half_index = second_half_index + 1;
+                        product *= factors[second_half_index];
+                        second_half_index += 1;
                     }
 
                     //we now have our two FFT sizes: product and product / len
@@ -193,7 +193,7 @@ impl<T: FFTnum> FFTplanner<T> {
 
     fn plan_fft_single_factor(&mut self, len: usize) -> Arc<dyn FFT<T>> {
         match len {
-            0...1 => Arc::new(DFT::new(len, self.inverse)) as Arc<dyn FFT<T>>,
+            0..=1 => Arc::new(DFT::new(len, self.inverse)) as Arc<dyn FFT<T>>,
             2 => Arc::new(butterflies::Butterfly2::new(self.inverse)) as Arc<dyn FFT<T>>,
             3 => Arc::new(butterflies::Butterfly3::new(self.inverse)) as Arc<dyn FFT<T>>,
             4 => Arc::new(butterflies::Butterfly4::new(self.inverse)) as Arc<dyn FFT<T>>,

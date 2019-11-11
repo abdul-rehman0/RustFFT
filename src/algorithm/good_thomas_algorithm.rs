@@ -82,10 +82,10 @@ impl<T: FFTnum> GoodThomasAlgorithm<T> {
         }
 
         Self {
-            width: width,
+            width,
             width_size_fft: width_fft,
 
-            height: height,
+            height,
             height_size_fft: height_fft,
 
             input_x_stride: height_inverse as usize * height,
@@ -240,10 +240,10 @@ impl<T: FFTnum> GoodThomasAlgorithmDoubleButterfly<T> {
         GoodThomasAlgorithmDoubleButterfly {
             inverse: width_fft.is_inverse(),
 
-            width: width,
+            width,
             width_size_fft: width_fft,
 
-            height: height,
+            height,
             height_size_fft: height_fft,
 
             input_output_map: input_output_map.into_boxed_slice(),

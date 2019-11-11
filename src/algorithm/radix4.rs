@@ -69,14 +69,14 @@ impl<T: FFTnum> Radix4<T> {
             twiddles: twiddle_factors.into_boxed_slice(),
             butterfly8: Butterfly8::new(inverse),
             butterfly16: Butterfly16::new(inverse),
-            len: len,
-            inverse: inverse,
+            len,
+            inverse,
         }
     }
 
     fn perform_fft(&self, signal: &[Complex<T>], spectrum: &mut [Complex<T>]) {
         match self.len() {
-            0...1 => spectrum.copy_from_slice(signal),
+            0..=1 => spectrum.copy_from_slice(signal),
             2 => {
                 spectrum.copy_from_slice(signal);
                 unsafe { Butterfly2::new(self.inverse).process_inplace(spectrum) }
@@ -209,10 +209,9 @@ unsafe fn butterfly_4<T: FFTnum>(
     num_ffts: usize,
     inverse: bool,
 ) {
-    let mut idx = 0usize;
     let mut tw_idx = 0usize;
     let mut scratch: [Complex<T>; 6] = [Zero::zero(); 6];
-    for _ in 0..num_ffts {
+    for (idx, _) in (0..num_ffts).enumerate() {
         scratch[0] = data.get_unchecked(idx + 1 * num_ffts) * twiddles[tw_idx];
         scratch[1] = data.get_unchecked(idx + 2 * num_ffts) * twiddles[tw_idx + 1];
         scratch[2] = data.get_unchecked(idx + 3 * num_ffts) * twiddles[tw_idx + 2];
@@ -235,7 +234,6 @@ unsafe fn butterfly_4<T: FFTnum>(
         }
 
         tw_idx += 3;
-        idx += 1;
     }
 }
 

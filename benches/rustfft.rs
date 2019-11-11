@@ -55,11 +55,11 @@ fn complex_p2_00065536(b: &mut Bencher) {
 }
 #[bench]
 fn complex_p2_01048576(b: &mut Bencher) {
-    bench_fft(b, 1048576);
+    bench_fft(b, 1_048_576);
 }
 #[bench]
 fn complex_p2_16777216(b: &mut Bencher) {
-    bench_fft(b, 16777216);
+    bench_fft(b, 16_777_216);
 }
 
 // Powers of 7
@@ -107,7 +107,7 @@ fn complex_prime_65537(b: &mut Bencher) {
 }
 #[bench]
 fn complex_prime_746497(b: &mut Bencher) {
-    bench_fft(b, 746497);
+    bench_fft(b, 746_497);
 }
 
 //primes raised to a power
@@ -117,7 +117,7 @@ fn complex_primepower_44521(b: &mut Bencher) {
 } // 211^2
 #[bench]
 fn complex_primepower_160801(b: &mut Bencher) {
-    bench_fft(b, 160801);
+    bench_fft(b, 160_801);
 } // 401^2
 
 // numbers times powers of two
@@ -449,7 +449,7 @@ fn raders_65537(b: &mut Bencher) {
 }
 #[bench]
 fn raders_746497(b: &mut Bencher) {
-    bench_raders(b, 746497);
+    bench_raders(b, 746_497);
 }
 
 /// Times just the FFT setup (not execution)
@@ -494,5 +494,5 @@ fn raders_setup_65537(b: &mut Bencher) {
 }
 #[bench]
 fn raders_setup_746497(b: &mut Bencher) {
-    bench_raders_setup(b, 746497);
+    bench_raders_setup(b, 746_497);
 }

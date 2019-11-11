@@ -67,14 +67,14 @@ impl<T: FFTnum> MixedRadix<T> {
         }
 
         MixedRadix {
-            width: width,
+            width,
             width_size_fft: width_fft,
 
-            height: height,
+            height,
             height_size_fft: height_fft,
 
             twiddles: twiddles.into_boxed_slice(),
-            inverse: inverse,
+            inverse,
         }
     }
 
@@ -188,14 +188,14 @@ impl<T: FFTnum> MixedRadixDoubleButterfly<T> {
         }
 
         MixedRadixDoubleButterfly {
-            width: width,
+            width,
             width_size_fft: width_fft,
 
-            height: height,
+            height,
             height_size_fft: height_fft,
 
             twiddles: twiddles.into_boxed_slice(),
-            inverse: inverse,
+            inverse,
         }
     }
 
@@ -258,8 +258,8 @@ impl<T> IsInverse for MixedRadixDoubleButterfly<T> {
 mod unit_tests {
     use super::*;
     use crate::algorithm::DFT;
-    use std::sync::Arc;
     use crate::test_utils::{check_fft_algorithm, make_butterfly};
+    use std::sync::Arc;
 
     #[test]
     fn test_mixed_radix() {

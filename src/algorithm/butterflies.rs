@@ -33,7 +33,7 @@ pub struct Butterfly2 {
 impl Butterfly2 {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
-        Butterfly2 { inverse: inverse }
+        Butterfly2 { inverse }
     }
 
     #[inline(always)]
@@ -95,7 +95,7 @@ impl<T: FFTnum> Butterfly3<T> {
     pub fn new(inverse: bool) -> Self {
         Butterfly3 {
             twiddle: twiddles::single_twiddle(1, 3, inverse),
-            inverse: inverse,
+            inverse,
         }
     }
 
@@ -166,7 +166,7 @@ pub struct Butterfly4 {
 impl Butterfly4 {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
-        Butterfly4 { inverse: inverse }
+        Butterfly4 { inverse }
     }
 }
 impl<T: FFTnum> FFTButterfly<T> for Butterfly4 {
@@ -251,7 +251,7 @@ impl<T: FFTnum> Butterfly5<T> {
 
         Butterfly5 {
             inner_fft_multiply: fft_data,
-            inverse: inverse,
+            inverse,
         }
     }
 }
@@ -274,6 +274,10 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly5<T> {
         for i in 0..4 {
             scratch[i] = scratch[i] * self.inner_fft_multiply[i];
         }
+        //refactored version -- change it after benchmark
+        //scratch.iter_mut().for_each(|v| {
+        //    scratch *= self.inner_fft_multiply[i];
+        //});
 
         //perform the second inner FFT
         Butterfly4::new(!self.inverse).process_inplace(&mut scratch);
@@ -469,6 +473,10 @@ impl<T: FFTnum> FFTButterfly<T> for Butterfly7<T> {
         for i in 0..6 {
             scratch[i] = scratch[i] * self.inner_fft_multiply[i];
         }
+        //refactored version -- change it after benchmark
+        //scratch.iter_mut().for_each(|v| {
+        //    scratch *= self.inner_fft_multiply[i];
+        //});
 
         //perform the second inner FFT
         let inverse6 = Butterfly6::inverse_of(&self.inner_fft);
@@ -532,7 +540,7 @@ impl<T: FFTnum> Butterfly8<T> {
     #[inline(always)]
     pub fn new(inverse: bool) -> Self {
         Butterfly8 {
-            inverse: inverse,
+            inverse,
             twiddle: twiddles::single_twiddle(1, 8, inverse),
         }
     }
@@ -655,7 +663,7 @@ impl<T: FFTnum> Butterfly16<T> {
             twiddle1: twiddles::single_twiddle(1, 16, inverse),
             twiddle2: twiddles::single_twiddle(2, 16, inverse),
             twiddle3: twiddles::single_twiddle(3, 16, inverse),
-            inverse: inverse,
+            inverse,
         }
     }
 }
@@ -790,7 +798,7 @@ impl<T: FFTnum> Butterfly32<T> {
                 twiddles::single_twiddle(6, 32, inverse),
                 twiddles::single_twiddle(7, 32, inverse),
             ],
-            inverse: inverse,
+            inverse,
         }
     }
 }
@@ -958,8 +966,8 @@ impl<T> IsInverse for Butterfly32<T> {
 mod unit_tests {
     use super::*;
     use crate::algorithm::DFT;
-    use num_traits::Zero;
     use crate::test_utils::{check_fft_algorithm, compare_vectors, random_signal};
+    use num_traits::Zero;
 
     //the tests for all butterflies will be identical except for the identifiers used and size
     //so it's ideal for a macro

@@ -35,7 +35,7 @@ impl<T: FFTnum> DFT<T> {
     pub fn new(len: usize, inverse: bool) -> Self {
         DFT {
             twiddles: twiddles::generate_twiddle_factors(len, inverse),
-            inverse: inverse,
+            inverse,
         }
     }
 
@@ -105,7 +105,7 @@ mod unit_tests {
                 let angle = -1f32 * (i * k) as f32 * 2f32 * f32::consts::PI / signal.len() as f32;
                 let twiddle = Complex::from_polar(&1f32, &angle);
 
-                sum = sum + twiddle * x;
+                sum += twiddle * x;
             }
             *spec_bin = sum;
         }
@@ -184,8 +184,7 @@ mod unit_tests {
         let dft_instance = DFT::new(signal.len(), false);
         dft_instance.process(&mut actual_signal, &mut actual_spectrum);
 
-        return compare_vectors(spectrum, &expected_spectrum)
-            && compare_vectors(spectrum, &actual_spectrum);
+        compare_vectors(spectrum, &expected_spectrum) && compare_vectors(spectrum, &actual_spectrum)
     }
 
     #[test]
@@ -220,12 +219,12 @@ mod unit_tests {
         let spectrum = [
             Complex { re: 2f32, im: 2f32 },
             Complex {
-                re: -5.562177f32,
-                im: -2.098076f32,
+                re: -5.562_177f32,
+                im: -2.098_076f32,
             },
             Complex {
-                re: 6.562178f32,
-                im: 3.09807f32,
+                re: 6.562_178f32,
+                im: 3.098_07f32,
             },
         ];
         assert!(test_dft_correct(&signal[..], &spectrum[..]));

@@ -91,7 +91,7 @@ impl<T: FFTnum> RadersAlgorithm<T> {
         inner_fft.process(&mut inner_fft_input, &mut inner_fft_output);
 
         Self {
-            inner_fft: inner_fft,
+            inner_fft,
             inner_fft_data: inner_fft_output.into_boxed_slice(),
 
             primitive_root,
@@ -177,8 +177,8 @@ impl<T> IsInverse for RadersAlgorithm<T> {
 mod unit_tests {
     use super::*;
     use crate::algorithm::DFT;
-    use std::sync::Arc;
     use crate::test_utils::check_fft_algorithm;
+    use std::sync::Arc;
 
     #[test]
     fn test_raders() {
