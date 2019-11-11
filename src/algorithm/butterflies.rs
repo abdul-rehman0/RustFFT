@@ -957,9 +957,9 @@ impl<T> IsInverse for Butterfly32<T> {
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use algorithm::DFT;
+    use crate::algorithm::DFT;
     use num_traits::Zero;
-    use test_utils::{check_fft_algorithm, compare_vectors, random_signal};
+    use crate::test_utils::{check_fft_algorithm, compare_vectors, random_signal};
 
     //the tests for all butterflies will be identical except for the identifiers used and size
     //so it's ideal for a macro
@@ -989,7 +989,7 @@ mod unit_tests {
     test_butterfly_func!(test_butterfly16, Butterfly16, 16);
     test_butterfly_func!(test_butterfly32, Butterfly32, 32);
 
-    fn check_butterfly(butterfly: &FFTButterfly<f32>, size: usize, inverse: bool) {
+    fn check_butterfly(butterfly: &dyn FFTButterfly<f32>, size: usize, inverse: bool) {
         assert_eq!(
             butterfly.len(),
             size,

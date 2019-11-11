@@ -242,7 +242,7 @@ unsafe fn butterfly_4<T: FFTnum>(
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use test_utils::check_fft_algorithm;
+    use crate::test_utils::check_fft_algorithm;
 
     #[test]
     fn test_radix4() {
