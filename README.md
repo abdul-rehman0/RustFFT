@@ -4,7 +4,7 @@
 [![](https://img.shields.io/crates/v/rustfft.svg)](https://crates.io/crates/rustfft)
 [![](https://img.shields.io/crates/l/rustfft.svg)](https://crates.io/crates/rustfft)
 [![](https://docs.rs/rustfft/badge.svg)](https://docs.rs/rustfft/)
-![minimum rustc 1.26](https://img.shields.io/badge/rustc-1.26+-red.svg)
+![minimum rustc 1.37](https://img.shields.io/badge/rustc-1.37.0%2B-lightgrey)
 
 RustFFT is a mixed-radix FFT implementation written in Rust. See the [documentation](https://docs.rs/rustfft/) for more details.
 
