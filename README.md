@@ -10,7 +10,7 @@ RustFFT is a mixed-radix FFT implementation written in Rust. See the [documentat
 
 ## Compatibility
 
-The `rustfft` crate requires rustc 1.26 or greater.
+The `rustfft` crate requires rustc 1.37 or greater.
 
 ## License
 
